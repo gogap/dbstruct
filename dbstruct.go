@@ -62,9 +62,11 @@ func (p *DbField) GoType() reflect.Type {
 type DbTable struct {
 	Name   string
 	Fields []DbField
+
+	typ reflect.Type
 }
 
-func (p *DbTable) NewStruct() (v interface{}, err error) {
+func (p *DbTable) init() {
 
 	var fields []reflect.StructField
 	for i := 0; i < len(p.Fields); i++ {
@@ -78,10 +80,29 @@ func (p *DbTable) NewStruct() (v interface{}, err error) {
 
 	structTyp := reflect.StructOf(fields)
 
-	val := reflect.New(structTyp)
+	p.typ = structTyp
+}
+
+func (p *DbTable) NewStruct() (v interface{}, err error) {
+
+	val := reflect.New(p.typ)
 
 	if !val.IsValid() {
 		err = fmt.Errorf("create struct of %s failure", p.Name)
+		return
+	}
+
+	v = val.Interface()
+
+	return
+}
+
+func (p *DbTable) NewStructSlice() (v interface{}, err error) {
+
+	val := reflect.MakeSlice(reflect.SliceOf(p.typ), 0, 0)
+
+	if !val.IsValid() {
+		err = fmt.Errorf("create struct slice of %s failure", p.Name)
 		return
 	}
 
@@ -141,6 +162,8 @@ func (p *DBStruct) Describe(tableName string) (tb DbTable, err error) {
 		Name:   tableName,
 		Fields: fields,
 	}
+
+	tb.init()
 
 	return
 }
