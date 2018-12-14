@@ -63,9 +63,9 @@ var (
 )
 
 // default sql type change to go types
-func SQLType2Type(strType string) reflect.Type {
+func SQLType2Type(dbField DbField) reflect.Type {
 
-	strTypes := strings.Split(strType, " ")
+	strTypes := strings.Split(dbField.Type, " ")
 
 	dbType := strTypes[0]
 
@@ -73,27 +73,35 @@ func SQLType2Type(strType string) reflect.Type {
 		dbType = dbType[0:i]
 	}
 
+	var ret reflect.Type
+
 	name := strings.ToUpper(dbType)
 	switch name {
 	case Bit, TinyInt, SmallInt, MediumInt, Int, Integer, Serial:
-		return reflect.TypeOf(1)
+		ret = reflect.TypeOf(1)
 	case BigInt, BigSerial:
-		return reflect.TypeOf(int64(1))
+		ret = reflect.TypeOf(int64(1))
 	case Float, Real:
-		return reflect.TypeOf(float32(1))
+		ret = reflect.TypeOf(float32(1))
 	case Double:
-		return reflect.TypeOf(float64(1))
+		ret = reflect.TypeOf(float64(1))
 	case Char, Varchar, NVarchar, TinyText, Text, NText, MediumText, LongText, Enum, Set, Uuid, Clob, SysName:
-		return reflect.TypeOf("")
+		ret = reflect.TypeOf("")
 	case TinyBlob, Blob, LongBlob, Bytea, Binary, MediumBlob, VarBinary, UniqueIdentifier:
-		return reflect.TypeOf([]byte{})
+		ret = reflect.TypeOf([]byte{})
 	case Bool:
-		return reflect.TypeOf(true)
+		ret = reflect.TypeOf(true)
 	case DateTime, Date, Time, TimeStamp, TimeStampz:
-		return reflect.TypeOf(time.Time{})
+		ret = reflect.TypeOf(time.Time{})
 	case Decimal, Numeric:
-		return reflect.TypeOf("")
+		ret = reflect.TypeOf("")
 	default:
-		return reflect.TypeOf("")
+		ret = reflect.TypeOf("")
 	}
+
+	if dbField.Null == "YES" {
+		ret = reflect.PtrTo(ret)
+	}
+
+	return ret
 }

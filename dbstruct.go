@@ -56,7 +56,7 @@ type DbField struct {
 }
 
 func (p *DbField) GoType() reflect.Type {
-	return SQLType2Type(p.Type)
+	return SQLType2Type(*p)
 }
 
 type DbTable struct {
