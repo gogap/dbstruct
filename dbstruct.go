@@ -136,6 +136,13 @@ func New(opts ...Option) (dbStruct *DBStruct, err error) {
 
 func (p *DBStruct) Describe(tableName string) (tb DbTable, err error) {
 
+	tableName = strings.TrimSpace(tableName)
+
+	if len(tableName) == 0 {
+		err = fmt.Errorf("the describe table name is empty")
+		return
+	}
+
 	db, err := sqlx.Connect(p.Options.Driver, p.Options.DSN)
 
 	if err != nil {
@@ -174,6 +181,13 @@ func (p *DBStruct) Describe(tableName string) (tb DbTable, err error) {
 
 func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 
+	query = strings.TrimSpace(query)
+
+	if len(query) == 0 {
+		err = fmt.Errorf("the describe query is empty")
+		return
+	}
+
 	if len(p.Options.CreateTableDSN) == 0 {
 		err = fmt.Errorf("the CreateTableDSN option must be set")
 		return
@@ -187,11 +201,17 @@ func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 
 	defer db.Close()
 
-	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
+	query = strings.TrimSuffix(query, ";")
 
 	limitQuery := query
 
-	if !strings.Contains(strings.ToUpper(query), " LIMIT ") {
+	upperQuery := strings.ToUpper(query)
+	if strings.Contains(upperQuery, " LIMIT ") ||
+		strings.Contains(upperQuery, "\nLIMIT ") ||
+		strings.Contains(upperQuery, "\tLIMIT ") {
+		limitIndex := strings.Index(upperQuery, "LIMIT")
+		limitQuery = query[:limitIndex] + " LIMIT 0 "
+	} else {
 		limitQuery += " LIMIT 0 "
 	}
 
