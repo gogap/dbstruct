@@ -25,8 +25,8 @@ func nameMapper(name string) (newName string) {
 
 func main() {
 	s, err := dbstruct.New(
-		dbstruct.Driver("mysql"),
-		dbstruct.DSN("root:password@tcp(localhost:3306)/test?charset=utf8&parseTime=True&loc=Local"),
+		dbstruct.DataSource("mysql", "root:password@tcp(localhost:3306)/test?charset=utf8&parseTime=True&loc=Local"),
+		dbstruct.CreateTabelDSN("root:password@tcp(localhost:3306)/test?charset=utf8&parseTime=True&loc=Local"),
 		dbstruct.NameMapper(nameMapper),
 	)
 	if err != nil {
@@ -41,5 +41,18 @@ func main() {
 	}
 
 	fmt.Println(dbTable.NewStruct())
+	fmt.Println(dbTable.NewStructSlice())
+
+	fmt.Println("Describe Query ....")
+
+	dbTable, err = s.DescribeQuery("select id,name from users")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println(dbTable.NewStruct())
+	fmt.Println(dbTable.NewStructSlice())
 }
+
 ```

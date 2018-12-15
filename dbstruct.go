@@ -2,7 +2,9 @@ package dbstruct
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"reflect"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -11,23 +13,25 @@ type NameMapFunc func(string) string
 type TaggerFunc func(dbName, fieldName string) reflect.StructTag
 
 type Options struct {
-	NameMap NameMapFunc
-	Tagger  TaggerFunc
-	DSN     string
-	Driver  string
+	NameMap        NameMapFunc
+	Tagger         TaggerFunc
+	DSN            string
+	Driver         string
+	CreateTableDSN string
 }
 
 type Option func(*Options)
 
-func DSN(dsn string) Option {
+func DataSource(dsn, driver string) Option {
 	return func(o *Options) {
-		o.DSN = dsn
+		o.DSN = driver
+		o.Driver = dsn
 	}
 }
 
-func Driver(driver string) Option {
+func CreateTabelDSN(dsn string) Option {
 	return func(o *Options) {
-		o.Driver = driver
+		o.CreateTableDSN = dsn
 	}
 }
 
@@ -164,6 +168,49 @@ func (p *DBStruct) Describe(tableName string) (tb DbTable, err error) {
 	}
 
 	tb.init()
+
+	return
+}
+
+func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
+
+	if len(p.Options.CreateTableDSN) == 0 {
+		err = fmt.Errorf("the CreateTableDSN option must be set")
+		return
+	}
+
+	db, err := sqlx.Connect(p.Options.Driver, p.Options.CreateTableDSN)
+
+	if err != nil {
+		return
+	}
+
+	defer db.Close()
+
+	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
+
+	limitQuery := query
+
+	if !strings.Contains(strings.ToUpper(query), " LIMIT ") {
+		limitQuery += " LIMIT 0 "
+	}
+
+	tableName := "temp_" + strings.Replace(uuid.New().String(), "-", "", -1)
+
+	createTableSQL := fmt.Sprintf("CREATE TABLE `%s` AS %s", tableName, query)
+
+	_, err = db.Exec(createTableSQL)
+
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		deleteTableSQL := fmt.Sprintf("DROP TABLE `%s`", tableName)
+		db.Exec(deleteTableSQL)
+	}()
+
+	tb, err = p.Describe(tableName)
 
 	return
 }
