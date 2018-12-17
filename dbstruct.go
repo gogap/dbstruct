@@ -203,21 +203,23 @@ func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 
 	query = strings.TrimSuffix(query, ";")
 
+	if strings.Index(query, ";") >= 0 {
+		err = fmt.Errorf("could not have more than one sql")
+		return
+	}
+
 	limitQuery := query
 
 	upperQuery := strings.ToUpper(query)
-	if strings.Contains(upperQuery, " LIMIT ") ||
-		strings.Contains(upperQuery, "\nLIMIT ") ||
-		strings.Contains(upperQuery, "\tLIMIT ") {
-		limitIndex := strings.Index(upperQuery, "LIMIT")
-		limitQuery = query[:limitIndex] + " LIMIT 0 "
+	if strings.Contains(upperQuery, "LIMIT") {
+		limitQuery = updateLimit(query)
 	} else {
 		limitQuery += " LIMIT 0 "
 	}
 
 	tableName := "temp_" + strings.Replace(uuid.New().String(), "-", "", -1)
 
-	createTableSQL := fmt.Sprintf("CREATE TABLE `%s` AS %s", tableName, query)
+	createTableSQL := fmt.Sprintf("CREATE TABLE `%s` AS %s", tableName, limitQuery)
 
 	_, err = db.Exec(createTableSQL)
 
@@ -233,4 +235,38 @@ func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 	tb, err = p.Describe(tableName)
 
 	return
+}
+
+func updateLimit(query string) string {
+
+	fields := strings.Fields(query)
+
+	for i := 0; i < len(fields); i++ {
+		if strings.ToUpper(fields[i]) == "LIMIT" {
+			if isUnClosedWithSpace(fields[i+1]) {
+				fields[i+1] = ""
+				fields[i+2] = newLimitArgs(fields[i+2])
+				i += 2
+			} else {
+				fields[i+1] = newLimitArgs(fields[i+1])
+				i++
+			}
+		}
+	}
+
+	return strings.Join(fields, " ")
+}
+
+func isUnClosedWithSpace(args string) bool {
+	return args[len(args)-1] == ','
+}
+
+func newLimitArgs(args string) string {
+
+	i := strings.Index(args, ")")
+	if i == -1 {
+		return "0"
+	}
+
+	return "0" + args[i:]
 }
