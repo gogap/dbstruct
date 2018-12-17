@@ -9,12 +9,14 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type NameMapFunc func(string) string
+type NameMapperFunc func(string) string
 type TaggerFunc func(dbName, fieldName string) reflect.StructTag
+type TypeMapperFunc func(dbName, fieldName, dbFieldType string) reflect.Type
 
 type Options struct {
-	NameMap        NameMapFunc
+	NameMap        NameMapperFunc
 	Tagger         TaggerFunc
+	TypeMapper     TypeMapperFunc
 	DSN            string
 	Driver         string
 	CreateTableDSN string
@@ -41,7 +43,13 @@ func Tagger(tagger TaggerFunc) Option {
 	}
 }
 
-func NameMapper(nameMap NameMapFunc) Option {
+func TypeMapper(typeMapper TypeMapperFunc) Option {
+	return func(o *Options) {
+		o.TypeMapper = typeMapper
+	}
+}
+
+func NameMapper(nameMap NameMapperFunc) Option {
 	return func(o *Options) {
 		o.NameMap = nameMap
 	}
@@ -56,11 +64,8 @@ type DbField struct {
 	Extra   string      `db:"Extra"`
 
 	Name      string
+	GoType    reflect.Type
 	StructTag reflect.StructTag
-}
-
-func (p *DbField) GoType() reflect.Type {
-	return SQLType2Type(*p)
 }
 
 type DbTable struct {
@@ -70,13 +75,40 @@ type DbTable struct {
 	typ reflect.Type
 }
 
-func (p *DbTable) init() {
+func (p *DbTable) FieldByName(name string) (field *DbField, exist bool) {
+
+	for i := 0; i < len(p.Fields); i++ {
+		if p.Fields[i].Name == name {
+			field = &p.Fields[i]
+			exist = true
+			return
+		}
+	}
+	return
+}
+
+func (p *DbTable) UpdateField(name string, field DbField) (err error) {
+
+	oldField, exist := p.FieldByName(name)
+	if !exist {
+		err = fmt.Errorf("field of %s not exist", name)
+		return
+	}
+
+	*oldField = field
+
+	p.rebuild()
+
+	return
+}
+
+func (p *DbTable) rebuild() {
 
 	var fields []reflect.StructField
 	for i := 0; i < len(p.Fields); i++ {
 		field := reflect.StructField{
 			Name: p.Fields[i].Name,
-			Type: p.Fields[i].GoType(),
+			Type: p.Fields[i].GoType,
 			Tag:  p.Fields[i].StructTag,
 		}
 		fields = append(fields, field)
@@ -167,6 +199,12 @@ func (p *DBStruct) Describe(tableName string) (tb DbTable, err error) {
 		if p.Options.Tagger != nil {
 			fields[i].StructTag = p.Options.Tagger(tableName, fields[i].Field)
 		}
+
+		if p.Options.TypeMapper != nil {
+			fields[i].GoType = p.Options.TypeMapper(tableName, fields[i].Field, fields[i].Type)
+		} else {
+			fields[i].GoType = SQLType2Type(fields[i])
+		}
 	}
 
 	tb = DbTable{
@@ -174,7 +212,7 @@ func (p *DBStruct) Describe(tableName string) (tb DbTable, err error) {
 		Fields: fields,
 	}
 
-	tb.init()
+	tb.rebuild()
 
 	return
 }
