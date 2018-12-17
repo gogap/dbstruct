@@ -152,7 +152,9 @@ type DBStruct struct {
 
 func New(opts ...Option) (dbStruct *DBStruct, err error) {
 
-	options := Options{}
+	options := Options{
+		NameMap: defaultNameMapper,
+	}
 
 	for _, o := range opts {
 		o(&options)
@@ -311,4 +313,18 @@ func newLimitArgs(args string) string {
 	}
 
 	return "0" + args[i:]
+}
+
+func defaultNameMapper(name string) string {
+	name = strings.TrimSpace(name)
+
+	if strings.Index(name, "_") >= 0 {
+		names := strings.Split(name, "_")
+		for i := 0; i < len(names); i++ {
+			names[i] = strings.Title(names[i])
+		}
+		return strings.Join(names, "")
+	}
+
+	return strings.Title(name)
 }
