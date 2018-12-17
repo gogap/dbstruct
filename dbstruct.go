@@ -225,6 +225,18 @@ func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 		return
 	}
 
+	if strings.Index(query, ";") >= 0 {
+		err = fmt.Errorf("could not have more than one query")
+		return
+	}
+
+	fields := strings.Fields(query)
+
+	if strings.ToUpper(fields[0]) != "SELECT" {
+		err = fmt.Errorf("the query must be SELECT stmt")
+		return
+	}
+
 	if len(p.Options.CreateTableDSN) == 0 {
 		err = fmt.Errorf("the CreateTableDSN option must be set")
 		return
@@ -237,13 +249,6 @@ func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 	}
 
 	defer db.Close()
-
-	query = strings.TrimSuffix(query, ";")
-
-	if strings.Index(query, ";") >= 0 {
-		err = fmt.Errorf("could not have more than one sql")
-		return
-	}
 
 	limitQuery := query
 
