@@ -75,11 +75,11 @@ type DbTable struct {
 	typ reflect.Type
 }
 
-func (p *DbTable) FieldByName(name string) (field *DbField, exist bool) {
+func (p *DbTable) FieldByName(name string) (field DbField, exist bool) {
 
 	for i := 0; i < len(p.Fields); i++ {
 		if p.Fields[i].Name == name {
-			field = &p.Fields[i]
+			field = p.Fields[i]
 			exist = true
 			return
 		}
@@ -89,15 +89,14 @@ func (p *DbTable) FieldByName(name string) (field *DbField, exist bool) {
 
 func (p *DbTable) UpdateField(name string, field DbField) (err error) {
 
-	oldField, exist := p.FieldByName(name)
-	if !exist {
-		err = fmt.Errorf("field of %s not exist", name)
-		return
+	for i := 0; i < len(p.Fields); i++ {
+		if p.Fields[i].Name == name {
+			p.Fields[i] = field
+			p.rebuild()
+		}
 	}
 
-	*oldField = field
-
-	p.rebuild()
+	err = fmt.Errorf("field of %s not exist", name)
 
 	return
 }
