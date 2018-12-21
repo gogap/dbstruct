@@ -234,7 +234,8 @@ func (p *DBStruct) DescribeQuery(query string) (tb DbTable, err error) {
 
 	fields := strings.Fields(query)
 
-	if strings.ToUpper(fields[0]) != "SELECT" {
+	firstField := strings.ToUpper(fields[0])
+	if firstField != "SELECT" && firstField != "(SELECT" {
 		err = fmt.Errorf("the query must be SELECT stmt")
 		return
 	}
